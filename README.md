@@ -39,6 +39,7 @@ herfra ind i sin fork.
 | `/user`, `/user/<id>` | logget ind (`/user/<id>`: dem ejeren har givet adgang) | **Mit område**: overblik (tal, seneste aktivitet, områder delt med dig), indstillinger og deling. Giv en anden bruger adgang som **læser** eller **forfatter** (kan oprette og redigere, aldrig slette), evt. med udløb. De åbner det på `/user/<id>`. |
 | `/user/mail`, `/admin/mail` | logget ind (`/admin/mail`: admin, Drift) | **Mail, kalender og kontakter**: personlig postkasse i Stalwart, fælles postkasser, kalendere og adressebøger med deling, udgående mail via Lettermint, mail slettes efter højst 30 dage. `/user/mail` til brugeren, `/admin/mail` til drift. |
 | `/beskeder`, `/samtaler`, `/admin/messages` | logget ind (`/admin/messages`: admin, Support, Privatliv og Drift) | **Beskeder** fra administrationen: udsendelse i to trin med overslag, indbakke på `/beskeder`, SMS kun med brugerens eget ja, e-mail, svar som privat tråd med administrationen. `/admin/messages` til afsendelse, svar, levering og regler. **Samtaler**: Fællessamtalen og direkte beskeder med anmeld, bloker og ordfilter; moderering i `/admin/messages/moderation`. |
+| `/viden` | logget ind (vidensrum, brugeren når gennem en agent) | **Viden**: søg i vidensrummene bag de agenter, du har adgang til, se dokumenterne, læs den udtrukne tekst, åbn originalen og spørg agenten. |
 | `/forbind`, `/go` | logget ind | **MCP-samtykke** (`/forbind`: en klient beder om adgang; `mcp:admin` kræver frisk anden faktor) og **deep links** (`/go?path=…&focus=…`, også `/admin/go`), der åbner en side og fokuserer et `data-deeplink`-anker. |
 | `/develop` | logget ind | **Promptkatalog** til udviklingsprocessen: færdige prompts til Claude (artifacts, nye features, endpoints, migrationer, tests, review, fejlfinding) med kategori, søgning og kopiér-knap. Linket fra forsiden. `/develop/trae` viser **træstrukturer** (TreeView, TreeSelect) mod de rigtige data: fire visninger og inputfelterne. |
 | `/admin/…` | admin (+ MFA) | Administration — en selvstændig app (`web/admin.html`). Kræver anden faktor efter tre logins med engangskode. Alt logges. |
@@ -50,7 +51,7 @@ herfra ind i sin fork.
 | `/mcp`, `/mcp/admin` | MCP-klienter (OAuth) | MCP-servere: appen som den indloggede bruger og admin med kladder. OAuth: `/.well-known/oauth-*`, `/mcp/authorize`, `/mcp/token`, `/mcp/register`. |
 | `/health` | udrulning | Sundhedstjek (database + version), bruges af `deploy/deploy.sh`. |
 
-<details><summary>Alle ruter (105)</summary>
+<details><summary>Alle ruter (109)</summary>
 
 | Sti | Svarer | Adgang | Side |
 | --- | --- | --- | --- |
@@ -74,6 +75,10 @@ herfra ind i sin fork.
 | `/beskeder/:id` | appen | logget ind | Besked (feature `beskeder`) |
 | `/samtaler` | appen | logget ind | Samtaler (feature `samtaler`) |
 | `/samtaler/:id` | appen | logget ind | Samtale (feature `samtaler`) |
+| `/viden` | appen | logget ind | Viden (feature `knowledge`) |
+| `/viden/integrationer` | appen | logget ind | Integrationssøgning (feature `knowledge`) |
+| `/viden/:id` | appen | logget ind | Vidensrum (feature `knowledge`) |
+| `/viden/dokument/:id` | appen | logget ind | Dokument (feature `knowledge`) |
 | `/privatliv` | appen | alle | Privatliv |
 | `/forbind` | appen | logget ind | Forbind MCP-klient |
 | `/godkend` | appen | logget ind | Godkend adgang |

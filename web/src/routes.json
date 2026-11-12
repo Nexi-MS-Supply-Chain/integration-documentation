@@ -128,6 +128,22 @@
    ]
   },
   {
+   "id": "knowledge",
+   "docs_path": "`/viden`",
+   "who": {
+    "en": "logged in (spaces reachable through an agent the user may use)",
+    "da": "logget ind (vidensrum, brugeren når gennem en agent)"
+   },
+   "what": {
+    "en": "**Viden** library (spec in `specs/knowledge/`): search across the knowledge spaces of the published agents the user may use, browse a space's documents, read the extracted text and open the original through a short-lived link, and jump to an agent's chat (`/extension/agent/:slug`). A space is visible only through the latest published snapshot of such an agent and never while it is in the bin.",
+    "da": "**Viden**: søg i vidensrummene bag de agenter, du har adgang til, se dokumenterne, læs den udtrukne tekst, åbn originalen og spørg agenten."
+   },
+   "code": [
+    "knowledge/Library.tsx",
+    "routes/knowledge.py"
+   ]
+  },
+  {
    "id": "mcp-links",
    "docs_path": "`/forbind`, `/go`",
    "who": {
@@ -448,6 +464,38 @@
    "access": "user",
    "title": "Samtale",
    "feature": "samtaler"
+  },
+  {
+   "path": "/viden",
+   "group": "knowledge",
+   "app": "app",
+   "access": "user",
+   "title": "Viden",
+   "feature": "knowledge"
+  },
+  {
+   "path": "/viden/integrationer",
+   "group": "knowledge",
+   "app": "app",
+   "access": "user",
+   "title": "Integrationssøgning",
+   "feature": "knowledge"
+  },
+  {
+   "path": "/viden/:id",
+   "group": "knowledge",
+   "app": "app",
+   "access": "user",
+   "title": "Vidensrum",
+   "feature": "knowledge"
+  },
+  {
+   "path": "/viden/dokument/:id",
+   "group": "knowledge",
+   "app": "app",
+   "access": "user",
+   "title": "Dokument",
+   "feature": "knowledge"
   },
   {
    "path": "/privatliv",

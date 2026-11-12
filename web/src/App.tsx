@@ -34,6 +34,8 @@ import { DocumentTool, OutlookTool, ToolLayout, WordTool } from "./office/Tools"
 import { MobileClips, MobileFiles, MobileHome, MobileLayout } from "./mobile/Mobile";
 import ReviewLauncher from "./review/ReviewLauncher";
 import { AgentChat, AgentList } from "./knowledge/Agents";
+import { LibraryDocument, LibraryHome, LibrarySpace } from "./knowledge/Library";
+import { IntegrationSearch } from "./knowledge/IntegrationSearch";
 import { AppShell } from "./shell";
 
 function ImpersonationBanner() {
@@ -143,6 +145,10 @@ export default function App() {
         <Route path="/beskeder/:id" element={<RequireUser><FeatureGate feature="beskeder"><Inbox /></FeatureGate></RequireUser>} />
         <Route path="/samtaler" element={<RequireUser><FeatureGate feature="samtaler"><Conversations /></FeatureGate></RequireUser>} />
         <Route path="/samtaler/:id" element={<RequireUser><FeatureGate feature="samtaler"><Conversations /></FeatureGate></RequireUser>} />
+        <Route path="/viden" element={<RequireUser><FeatureGate feature="knowledge"><LibraryHome /></FeatureGate></RequireUser>} />
+        <Route path="/viden/integrationer" element={<RequireUser><FeatureGate feature="knowledge"><IntegrationSearch /></FeatureGate></RequireUser>} />
+        <Route path="/viden/:id" element={<RequireUser><FeatureGate feature="knowledge"><LibrarySpace /></FeatureGate></RequireUser>} />
+        <Route path="/viden/dokument/:id" element={<RequireUser><FeatureGate feature="knowledge"><LibraryDocument /></FeatureGate></RequireUser>} />
         <Route path="/forbind" element={<RequireUser><McpConsent /></RequireUser>} />
         <Route path="/godkend" element={<RequireUser><Approve /></RequireUser>} />
         <Route path="/filer" element={<RequireUser><FeatureGate feature="filer"><Files /></FeatureGate></RequireUser>} />

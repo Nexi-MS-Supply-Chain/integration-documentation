@@ -218,6 +218,51 @@ async def test_members_only_access(make_client, owner_conn):
     assert (await user.get("/api/knowledge/agents/lukket")).status_code == 404
 
 
+async def test_library_shows_only_spaces_reachable_through_agents(make_client):
+    admin, user = await _admin_and_user(make_client)
+    space_id = await _space_with_handbook(admin)
+    hidden = (await admin.post("/api/admin/knowledge/spaces", json={"name": "Hemmeligt"})).json()["id"]
+    up = await admin.post(f"/api/admin/knowledge/spaces/{hidden}/upload",
+                          files=[("files", ("x.md", b"# Ferie\n\nHemmelig feriepolitik.", "text/markdown"))])
+    secret_doc = up.json()["added"][0]["id"]
+    await jobs.run_pending()
+
+    # A draft agent does not open its spaces.
+    agent = (await admin.post("/api/admin/knowledge/agents", json={"name": "Personale", "space_ids": [space_id]})).json()
+    assert (await user.get("/api/knowledge/library")).json() == {"spaces": [], "agents": []}
+    assert (await user.get(f"/api/knowledge/spaces/{space_id}")).status_code == 404
+    await admin.post(f"/api/admin/knowledge/agents/{agent['id']}/publish", json={})
+
+    lib = (await user.get("/api/knowledge/library")).json()
+    assert [(s["id"], s["documents"], s["agents"]) for s in lib["spaces"]] \
+        == [(space_id, 2, [{"slug": "personale", "name": "Personale"}])]
+    assert [a["slug"] for a in lib["agents"]] == ["personale"]
+    space = (await user.get(f"/api/knowledge/spaces/{space_id}")).json()
+    assert [d["filename"] for d in space["documents"]] == ["ferie.md", "rejser.docx"]
+
+    hits = (await user.get("/api/knowledge/search", params={"q": "ferie overføre"})).json()
+    assert hits["method"] == "fulltext" and hits["hits"][0]["filename"] == "ferie.md"
+    assert all(h["space_id"] == space_id for h in hits["hits"])
+    assert (await user.get("/api/knowledge/search", params={"q": "ferie", "space_id": hidden})).status_code == 404
+
+    ferie = space["documents"][0]["id"]
+    doc = (await user.get(f"/api/knowledge/documents/{ferie}")).json()
+    assert doc["markdown"].startswith("# Ferie") and "storage_key" not in doc
+    assert (await user.get(f"/api/knowledge/documents/{ferie}/link")).status_code == 200
+    for path in (f"/api/knowledge/documents/{secret_doc}", f"/api/knowledge/documents/{secret_doc}/link",
+                 f"/api/knowledge/spaces/{hidden}"):
+        assert (await user.get(path)).status_code == 404
+
+    # Members-only agents and binned spaces close the library again.
+    await admin.patch(f"/api/admin/knowledge/agents/{agent['id']}", json={"access": "members"})
+    await admin.post(f"/api/admin/knowledge/agents/{agent['id']}/publish", json={})
+    assert (await user.get("/api/knowledge/library")).json()["spaces"] == []
+    assert [s["id"] for s in (await admin.get("/api/knowledge/library")).json()["spaces"]] == [space_id]
+    await admin.delete(f"/api/admin/knowledge/spaces/{space_id}")
+    assert (await admin.get("/api/knowledge/library")).json()["spaces"] == []
+    assert (await admin.get(f"/api/knowledge/documents/{ferie}")).status_code == 404
+
+
 async def test_bin_restore_and_purge(make_client):
     admin, _ = await _admin_and_user(make_client)
     space_id = await _space_with_handbook(admin)

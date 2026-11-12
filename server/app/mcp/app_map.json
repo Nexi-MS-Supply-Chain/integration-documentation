@@ -612,6 +612,22 @@
         "user-shared",
         "user-sharing"
       ]
+    },
+    "/viden": {
+      "title": "Viden",
+      "anchors": []
+    },
+    "/viden/:id": {
+      "title": "Vidensrum",
+      "anchors": []
+    },
+    "/viden/dokument/:id": {
+      "title": "Dokument",
+      "anchors": []
+    },
+    "/viden/integrationer": {
+      "title": "Integrationssøgning",
+      "anchors": []
     }
   }
 }

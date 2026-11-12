@@ -1,11 +1,14 @@
-"""/api/knowledge — the user side of Viden: published agents on /extension/agent/:slug.
+"""/api/knowledge — the user side of Viden: published agents on /extension/agent/:slug and the library on /viden.
 
 A user may use a published agent when its access is 'all', when they are a member, or when they are an admin.
 They chat with the latest published version (the snapshot), never the working copy. Conversations are the
 user's own (scoped by user_id; GDPR export, cascade on erasure).
+
+The library (/viden) shows the spaces a user can reach through those agents: a space is visible when it is in
+the latest published snapshot of an agent the user may use and is not in the bin. There is no other way in.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
@@ -145,4 +148,104 @@ async def document_link(slug: str, doc_id: int, p: Principal = Depends(current_u
             where d.id = %s and d.space_id = any(%s) and s.deleted_at is null""", (doc_id, space_ids))
     if doc is None:
         raise HTTPException(404, "Dokumentet findes ikke")
+    return {"url": await get_storage().download_url(doc["storage_key"], doc["filename"]), "filename": doc["filename"]}
+
+
+# ── Library (/viden) ───────────────────────────────────────────────────────
+
+_LATEST = """join lateral (select snapshot from knowledge_agent_versions where agent_id = a.id
+                           order by major desc, minor desc limit 1) v on true"""
+
+
+async def _visible_space_ids(conn, p: Principal) -> list[int]:
+    rows = await db.fetch_all(conn, f"""
+        select distinct s.id from knowledge_agents a {_LATEST}
+        cross join lateral jsonb_array_elements_text(coalesce(v.snapshot -> 'space_ids', '[]'::jsonb)) as sid(value)
+        join knowledge_spaces s on s.id = sid.value::bigint and s.deleted_at is null
+        where {ACCESS}""", {"uid": p.user_id, "admin": p.is_admin})
+    return [r["id"] for r in rows]
+
+
+def _excerpt(text: str, limit: int = 320) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " …"
+
+
+@router.get("/library")
+async def library(p: Principal = Depends(current_user)):
+    """The spaces the user can reach through their agents, and the agents themselves."""
+    params = {"uid": p.user_id, "admin": p.is_admin}
+    async with db.connection() as conn:
+        spaces = await db.fetch_all(conn, f"""
+            select s.id, s.name, s.description, s.updated_at,
+                   (select count(*)::int from knowledge_documents d where d.space_id = s.id and d.status = 'indexed') as documents,
+                   jsonb_agg(distinct jsonb_build_object('slug', a.slug, 'name', v.snapshot ->> 'name')) as agents
+            from knowledge_agents a {_LATEST}
+            cross join lateral jsonb_array_elements_text(coalesce(v.snapshot -> 'space_ids', '[]'::jsonb)) as sid(value)
+            join knowledge_spaces s on s.id = sid.value::bigint and s.deleted_at is null
+            where {ACCESS}
+            group by s.id order by s.name""", params)
+        agents = await db.fetch_all(conn, f"""
+            select a.slug, a.version_major, a.version_minor, v.snapshot, false as can_manage
+            from knowledge_agents a {_LATEST}
+            where {ACCESS} order by a.name""", params)
+    return {"spaces": spaces, "agents": [_profile(a) for a in agents]}
+
+
+@router.get("/spaces/{space_id}")
+async def get_space(space_id: int, p: Principal = Depends(current_user)):
+    async with db.connection() as conn:
+        if space_id not in await _visible_space_ids(conn, p):
+            raise HTTPException(404, "Vidensrummet findes ikke, eller du har ikke adgang til det")
+        space = await db.fetch_one(conn, "select id, name, description, updated_at from knowledge_spaces where id = %s",
+                                   (space_id,))
+        documents = await db.fetch_all(conn, """
+            select id, filename, path, content_type, size_bytes, page_count, chunk_count, indexed_at
+            from knowledge_documents where space_id = %s and status = 'indexed' order by path, filename""", (space_id,))
+    return {**space, "documents": documents}
+
+
+@router.get("/search")
+async def search(q: str = Query(min_length=1, max_length=400), space_id: int | None = None,
+                 p: Principal = Depends(current_user)):
+    """The best passages for a query in the visible spaces (the same retrieval the agents use)."""
+    async with db.connection() as conn:
+        space_ids = await _visible_space_ids(conn, p)
+        if space_id is not None:
+            if space_id not in space_ids:
+                raise HTTPException(404, "Vidensrummet findes ikke, eller du har ikke adgang til det")
+            space_ids = [space_id]
+        rows, method = await engine.retrieve(conn, space_ids, q.strip())
+    return {"method": method, "hits": [
+        {"document_id": r["document_id"], "filename": r["filename"], "space_id": r["space_id"],
+         "space_name": r["space_name"], "section": r["section"] or None, "page": r["page"],
+         "excerpt": _excerpt(r["content"])} for r in rows]}
+
+
+async def _document(conn, doc_id: int, p: Principal) -> dict:
+    doc = await db.fetch_one(conn, """
+        select d.id, d.space_id, s.name as space_name, d.filename, d.path, d.content_type, d.size_bytes,
+               d.page_count, d.indexed_at, d.storage_key
+        from knowledge_documents d join knowledge_spaces s on s.id = d.space_id
+        where d.id = %s and d.status = 'indexed' and d.space_id = any(%s)""",
+        (doc_id, await _visible_space_ids(conn, p)))
+    if doc is None:
+        raise HTTPException(404, "Dokumentet findes ikke")
+    return doc
+
+
+@router.get("/documents/{doc_id}")
+async def get_document(doc_id: int, p: Principal = Depends(current_user)):
+    """A document with the text that was extracted and indexed from it."""
+    async with db.connection() as conn:
+        doc = await _document(conn, doc_id, p)
+        text = await db.fetch_one(conn, "select markdown from knowledge_texts where document_id = %s", (doc_id,))
+    doc.pop("storage_key")
+    return {**doc, "markdown": text["markdown"] if text else ""}
+
+
+@router.get("/documents/{doc_id}/link")
+async def library_document_link(doc_id: int, p: Principal = Depends(current_user)):
+    async with db.connection() as conn:
+        doc = await _document(conn, doc_id, p)
     return {"url": await get_storage().download_url(doc["storage_key"], doc["filename"]), "filename": doc["filename"]}

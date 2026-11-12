@@ -77,11 +77,14 @@ Hvert trin skriver i `knowledge_ingest_log`, som vises live under vidensrummet.
 | `/admin/knowledge/agents/:id` | admin | Agent-bygger: identitet, rute, instruktioner, vidensrum, startspørgsmål, adgang og medlemmer, udgiv, versioner, „Prøv agenten“ |
 | `/extension/agent` | logget ind | De agenter, brugeren har adgang til |
 | `/extension/agent/:slug` | logget ind + adgang til agenten | Chat med samtalehistorik og kildehenvisninger. Kan indlejres i sidepanelet |
+| `/viden`, `/viden/:id`, `/viden/dokument/:id` | logget ind | Vidensdatabasen: søg i, gennemse og læs de vidensrum, brugeren når gennem udgivne agenter, åbn originalfilen og spørg agenten. Et vidensrum er kun synligt, når det er med i den seneste udgivne version af en agent, brugeren må bruge, og ikke ligger i papirkurven |
 
 API:
 - `/api/admin/knowledge/…` — alt i admin; `require_admin`, auditeret.
 - `/api/knowledge/agents/…` — brugerens side: agentens profil, spørg, samtaler, link til kildefil.
   Kun udgivne agenter; adgang `all` = alle loggede ind, `members` = medlemmer (og admins).
+- `/api/knowledge/library`, `/spaces/{id}`, `/search?q=&space_id=`, `/documents/{id}`, `/documents/{id}/link` —
+  vidensdatabasen på `/viden`; samme adgang som agenterne og samme søgning (`engine.retrieve`).
 
 ## Audit
 `create`/`update`/`delete` på vidensrum, dokumenter, agenter og medlemmer; `knowledge.publish`,
